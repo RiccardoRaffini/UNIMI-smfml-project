@@ -1,7 +1,10 @@
 import numpy as np
-from typing import Any
+from typing import Any, Callable, Type
+from collections import Counter
 
 from commons.splitting_criteria import Condition
+from commons.splitting_criteria import information_gain, entropy
+from commons.stopping_criteria import TreeStopCondition, TreeMaximumDepth, NodeStopCondition, NodeImpurityLevel
 
 class TreePredictorNode:
     """Instances of this calss can be used to represent either internal or leaf
@@ -81,3 +84,7 @@ class TreePredictorNode:
             result = f'{{ Internal node -- feature index: {self.feature_index}, condition test: {self.condition}, children number: {len(self.children)} }}'
 
         return result
+
+
+class TreePredictor:
+    pass
