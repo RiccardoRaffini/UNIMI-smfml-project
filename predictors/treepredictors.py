@@ -87,4 +87,237 @@ class TreePredictorNode:
 
 
 class TreePredictor:
-    pass
+
+    def __init__(self,
+        continuous_condition:Type[Condition], categorical_condition:Type[Condition],
+        decision_metric:Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number] = information_gain,
+        tree_stopping_criteria:list[TreeStopCondition] = None,
+        node_stopping_criteria:list[NodeStopCondition] = None
+    ) -> None:
+
+        ## Tree structure
+        self._root:TreePredictorNode = None
+        self._depth = 0
+        self._nodes_count = 0
+        self._leaves_count = 0
+
+        ## Computation criteria
+        self._features_number:int = None
+        self._continuous_condition = continuous_condition
+        self._categorical_condition = categorical_condition
+        self._decision_metric = decision_metric
+
+        ## Stopping criteria
+        self._tree_stopping_criteria:list[TreeStopCondition] = []
+        if tree_stopping_criteria is None:
+            self._tree_stopping_criteria.append(TreeMaximumDepth(100))
+        else:
+            self._tree_stopping_criteria.extend(tree_stopping_criteria)
+        
+        self._node_stopping_criteria = [NodeImpurityLevel(entropy, 0)]
+        if not node_stopping_criteria is None:
+            self._node_stopping_criteria.extend(node_stopping_criteria)
+
+    def fit(self, samples:np.ndarray, labels:np.ndarray, verbose:bool = False) -> None:
+        ## Information about sample
+        _, samples_dimensionality = samples.shape
+        self._features_number = samples_dimensionality
+
+        ## New tree initialization
+        common_label = self._common_label(labels)
+        self._root = TreePredictorNode(label=common_label)
+        self._depth = 1
+        self._nodes_count = 1
+        self._leaves_count = 1
+
+        if verbose: print(f'initialized new tree')
+
+        ## Tree building
+        self._grow_tree(samples, labels, verbose)
+
+    def predict(self, samples:np.ndarray) -> np.ndarray:
+        samples_predictions = np.array([self._traverse_tree(sample) for sample in samples])
+
+        return samples_predictions
+
+    def _grow_tree(self, samples:np.ndarray, labels:np.ndarray, verbose:bool = False) -> None:
+
+        if verbose: print(f'Expanding tree...')
+
+        nodes_queue = [(self._root, np.arange(samples.shape[0]), self._depth)]
+
+        while nodes_queue:
+            if verbose: print(f'tree status > depth: {self._depth} total nodes: {self._nodes_count} leaf nodes: {self._leaves_count}\nnodes in queue: {len(nodes_queue)}')
+
+            ## Current node data
+            current_node, current_samples_indices, current_depth = nodes_queue.pop(0)
+            current_node_samples = samples[current_samples_indices]
+            current_node_labels = labels[current_samples_indices]
+
+            if verbose: print(f'current node > label: {current_node.label} samples: {len(current_samples_indices)} depth: {current_depth}')
+
+            ## Conditions check
+
+            ### tree conditions
+            if verbose: print(f'checking tree stop conditions:')
+
+            stop = False
+            for tree_stopping_criteria in self._tree_stopping_criteria:
+                if verbose: print(f'- checking if {tree_stopping_criteria}')
+
+                if tree_stopping_criteria.stop(self):
+                    if verbose: print(f'>> stopping because {tree_stopping_criteria}')
+
+                    stop = True
+                    break
+
+            if stop:
+                continue
+            
+            ### node conditions
+            if verbose: print(f'checking node stop conditions:')
+
+            stop = False
+            for node_stopping_criteria in self._node_stopping_criteria:
+                if verbose: print(f'- checking if {node_stopping_criteria}')
+
+                if node_stopping_criteria.stop(current_node, current_node_labels):
+                    if verbose: print(f'>> stopping because {node_stopping_criteria}')
+
+                    stop = True
+                    break
+
+            if stop:
+                continue
+
+            ## Node expansion
+            if verbose: print(f'Expanding node...')
+
+            ### Find best split
+            features_indices = list(range(self._features_number))
+            best_feature_index, best_parameter, is_continuous = self._find_best_condition(current_node_samples, current_node_labels, features_indices, verbose)
+            
+            if verbose: print(f'>> best feature: {best_feature_index} best parameter: {best_parameter} continuous: {is_continuous}')
+
+            ### Convert current node
+            current_node.label = None
+            current_node.feature_index = best_feature_index
+            if is_continuous:
+                condition = self._continuous_condition(best_parameter)
+            else:
+                condition = self._categorical_condition(best_parameter)
+            current_node.condition = condition
+            self._leaves_count -= 1
+
+            if verbose: print(f'Converting node > condition: {condition}')
+
+            ### Build new children nodes
+            if verbose: print(f'Adding children nodes:')
+
+            self._depth = max(self._depth, current_depth+1)
+            
+            condition_results = np.apply_along_axis(np.vectorize(condition.test), 0, current_node_samples[:, best_feature_index])
+            condition_unique_results = np.unique(condition_results)
+
+            if verbose: print(f'parent condition unique results: {condition_results}')
+
+            for unique_result in range(np.max(condition_unique_results)+1):
+                partition_indices = current_samples_indices[np.where(condition_results == unique_result)]
+                partition_labels = labels[partition_indices]
+                
+                partition_common_label = self._common_label(partition_labels)
+                partition_node = TreePredictorNode(label=partition_common_label)
+                current_node.children.append(partition_node)
+                self._nodes_count += 1
+                self._leaves_count += 1
+
+                if verbose: print(f'- adding child {unique_result} > label: {partition_common_label} samples: {len(partition_labels)} depth: {current_depth+1}')
+
+                nodes_queue.append((partition_node, partition_indices, current_depth+1))
+
+    def _find_best_condition(self, samples:np.ndarray, labels:np.ndarray, available_feature_indices:list[int], verbose:bool = False) -> tuple[int, Any, bool]:
+        best_condition_score = -1
+        best_feature_index = best_parameter = None
+        is_best_feature_continuous = False
+
+        if verbose: print(f'Find best conditions among features {available_feature_indices}:')
+
+        for feature_index in available_feature_indices:
+            feature_values = samples[:, feature_index]
+            possible_parameters = np.unique(feature_values)
+            is_continuous = np.issubdtype(type(feature_values[0]), np.number)
+
+            if verbose: print(f'- checking feature [{feature_index}] > possible parameters: {len(possible_parameters)} continuous: {is_continuous}')
+
+            for possible_parameter in possible_parameters:
+                if is_continuous:
+                    condition = self._continuous_condition(possible_parameter)
+                else:
+                    condition = self._categorical_condition(possible_parameter)
+                
+                parameter_score = self._decision_metric(feature_values, labels, condition.test)
+
+                if parameter_score > best_condition_score:
+                    best_condition_score = parameter_score
+                    best_feature_index = feature_index
+                    best_parameter = possible_parameter
+                    is_best_feature_continuous = is_continuous
+
+        if verbose: print(f'best condition > feature index: {best_feature_index} score: {best_condition_score} parameter: {best_parameter} continuous: {is_best_feature_continuous}')
+
+        return best_feature_index, best_parameter, is_best_feature_continuous
+
+    def _traverse_tree(self, sample:np.ndarray) -> Any:
+        """Traverses the tree underlying this tree predictor starting from the
+        root node, applying the conditional test of each internal node to the
+        provided sample, returning the predicted label for the sample, that is
+        the label associated to the final reached leaf node.
+
+        Args:
+            sample (np.ndarray): vector representing the sample to test.
+
+        Returns:
+            Any: prediction label determined by the tree.
+        """
+
+        current_node = self._root
+
+        while not current_node.is_leaf():
+            next_node_index = current_node.test(sample)
+            current_node = current_node.children[next_node_index]
+
+        final_label = current_node.label
+
+        return final_label
+
+    def _common_label(self, labels:np.ndarray) -> Any:
+        """Returns the most common label among the given ones, that is the label
+        having the highest count.
+
+        Args:
+            labels (np.ndarray): collection of labels to use.
+
+        Returns:
+            Any: most common label.
+        """
+
+        labels_count = Counter(labels)
+        most_common_label = labels_count.most_common()[0][0]
+
+        return most_common_label
+    
+    def __str__(self) -> str:
+        if self._root is None:
+            return '<empty tree>'
+
+        result = 'TreePredictor:'
+        stack = [(self._root, 0)]
+        
+        while stack:
+            node, depth = stack.pop()
+            result += '\n' + '  '*depth + str(node)
+
+            for child_node in node.children[::-1]:
+                stack.append((child_node, depth+1))
+
+        return result
