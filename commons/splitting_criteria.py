@@ -163,3 +163,37 @@ class EqualityCondition(BinaryCondition):
     
     def __str__(self) -> str:
         return f'x == {self._reference_value}'
+
+## Impurity indices
+
+def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    ## initial entropy
+    initial_entropy = entropy(labels)
+
+    ## splits
+    decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
+    decision_unique_values = np.unique(decision_results)
+    splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
+
+    ## splits entropy
+    feature_size = feature_values.size
+    splits_sizes = [split_labels.size for split_labels in splits_labels]
+
+    splits_entropy = 0
+    for i in range(len(splits_labels)):
+        split_weight = splits_sizes[i] / feature_size
+        split_entropy = entropy(splits_labels[i])
+        splits_entropy += split_weight * split_entropy
+
+    ## information gain
+    final_gain = initial_entropy - splits_entropy
+
+    return final_gain
+
+def entropy(values:np.ndarray) -> np.number:
+    _, values_count = np.unique(values, return_counts=True)
+    values_probabilities = values_count / values.size
+
+    entropy_value = - np.sum([probability * np.log2(probability) for probability in values_probabilities if probability > 0])
+
+    return entropy_value
