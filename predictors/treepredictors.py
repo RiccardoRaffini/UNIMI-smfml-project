@@ -87,6 +87,12 @@ class TreePredictorNode:
 
 
 class TreePredictor:
+    """Instances of this class represent generic tree predictors, trainable to
+    learn decision trees based on decision with a generic number of outcomes and
+    appliable to any kind of features.
+    Different aspects of the computation and training behavior can be customized
+    to determine the kind of the obtained trees and/or their charcteristics.
+    """
 
     def __init__(self,
         continuous_condition:Type[Condition], categorical_condition:Type[Condition],
@@ -94,6 +100,26 @@ class TreePredictor:
         tree_stopping_criteria:list[TreeStopCondition] = None,
         node_stopping_criteria:list[NodeStopCondition] = None
     ) -> None:
+        """Initializes a new TreePredictor instance by specifying criteria
+        required for its training and computation behavior.
+
+        Args:
+            continuous_condition (Type[Condition]): conditional statements type
+            to use when internal node decision should be based on continuous feature.
+            categorical_condition (Type[Condition]): conditional statement type
+            to use when internal node decision should be based on categorical feature.
+            decision_metric (Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number], optional):
+            decision metric to use for evaluating possible decision of conditional
+            statements. Defaults to information_gain for using a base implementation
+            of the information gain metric.
+            tree_stopping_criteria (list[TreeStopCondition], optional): collection
+            of stopping criteria for tree to check during training. Defaults to
+            None for using only a default criteria limiting the depth of the
+            tree to 100.
+            node_stopping_criteria (list[NodeStopCondition], optional): collection
+            of stopping criteria for nodes to check during training. Defaults to
+            None for not using any criteria.
+        """
 
         ## Tree structure
         self._root:TreePredictorNode = None
@@ -119,6 +145,16 @@ class TreePredictor:
             self._node_stopping_criteria.extend(node_stopping_criteria)
 
     def fit(self, samples:np.ndarray, labels:np.ndarray, verbose:bool = False) -> None:
+        """Trains the underlying model of this tree predictor using the given
+        samples and their associated labels.
+
+        Args:
+            samples (np.ndarray): collection of samples usable to train the model.
+            labels (np.ndarray): collection of labels associated to the samples.
+            verbose (bool, optional): determines wheter or not to print
+            information during the process. Defaults to False for no prints.
+        """
+
         ## Information about sample
         _, samples_dimensionality = samples.shape
         self._features_number = samples_dimensionality
@@ -136,11 +172,34 @@ class TreePredictor:
         self._grow_tree(samples, labels, verbose)
 
     def predict(self, samples:np.ndarray) -> np.ndarray:
+        """Predicts and retruns the labels of the given samples obtained using
+        the underlying model of this tree predictor.
+
+        Args:
+            samples (np.ndarray): collection of samples to which predict labels.
+
+        Returns:
+            np.ndarray: prediction labels determined by the model. 
+        """
+
         samples_predictions = np.array([self._traverse_tree(sample) for sample in samples])
 
         return samples_predictions
 
     def _grow_tree(self, samples:np.ndarray, labels:np.ndarray, verbose:bool = False) -> None:
+        """Expands the current tree starting from its newly created root
+        observing the provided samples and labels, determines when it is
+        appropriated or not to expand nodes according to the stopping criteria
+        associates to this tree, eventually finding the best splitting decision
+        for intermediate nodes.
+
+        Args:
+            samples (np.ndarray): collections representing the samples usable
+            to expand the tree.
+            labels (np.ndarray): collection of labels associated to samples.
+            verbose (bool, optional): determines wheter or not to print
+            information during the process. Defaults to False for no prints.
+        """
 
         if verbose: print(f'Expanding tree...')
 
@@ -236,6 +295,27 @@ class TreePredictor:
                 nodes_queue.append((partition_node, partition_indices, current_depth+1))
 
     def _find_best_condition(self, samples:np.ndarray, labels:np.ndarray, available_feature_indices:list[int], verbose:bool = False) -> tuple[int, Any, bool]:
+        """Examines all the features associated to the given indices, finding
+        the best one and the best paramter (according to the feature type) that
+        allow to build the best condition, that is the condition that maximizes
+        the decision metric used by this tree.
+        The parameters of this condition and the type of the feature are returned.
+
+        Args:
+            samples (np.ndarray): collection representing the sample to use
+            during the evaluation of the features.
+            labels (np.ndarray): collection representing the labels that are
+            associated to samples.
+            available_feature_indices (list[int]): indces of the feature that
+            have to be evaluated.
+            verbose (bool, optional): determines wheter or not to print
+            information during the process. Defaults to False for no prints.
+
+        Returns:
+            tuple[int, Any, bool]: best feature index, best condition's parameter
+            value and whether or not best feature is continuous.
+        """
+
         best_condition_score = -1
         best_feature_index = best_parameter = None
         is_best_feature_continuous = False
@@ -274,7 +354,7 @@ class TreePredictor:
         the label associated to the final reached leaf node.
 
         Args:
-            sample (np.ndarray): vector representing the sample to test.
+            sample (np.ndarray): collection representing the sample to test.
 
         Returns:
             Any: prediction label determined by the tree.
