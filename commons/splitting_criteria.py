@@ -167,6 +167,15 @@ class EqualityCondition(BinaryCondition):
 ## Impurity indices
 
 def entropy(values:np.ndarray) -> np.number:
+    """Returns the entropy of the provided collection of values.
+
+    Args:
+        values (np.ndarray): collection of values for which to compute entropy.
+
+    Returns:
+        np.number: entropy of the values.
+    """
+
     _, values_count = np.unique(values, return_counts=True)
     values_probabilities = values_count / values.size
 
@@ -175,6 +184,15 @@ def entropy(values:np.ndarray) -> np.number:
     return entropy_value
 
 def gini_index(values:np.ndarray) -> np.number:
+    """Returns the Gini index of the provided collection of values.
+
+    Args:
+        values (np.ndarray): collection of values for which to compute Gini index.
+
+    Returns:
+        np.number: Gini index of the values.
+    """
+
     _, values_count = np.unique(values, return_counts=True)
     values_probabilities = values_count / values.size
 
@@ -183,12 +201,31 @@ def gini_index(values:np.ndarray) -> np.number:
     return gini_value
 
 def gini_impurity(values:np.ndarray) -> np.number:
+    """Returns the Gini impurity of the provided collection of values.
+
+    Args:
+        values (np.ndarray): collection of values for which to compute Gini impurity.
+
+    Returns:
+        np.number: Gini impurity of the values.
+    """
+
     gini_value = gini_index(values)
     gini_impurity_value = 1 - gini_value
 
     return gini_impurity_value
 
 def minimum(values:np.ndarray) -> np.number:
+    """Returns the minimum absolute frequency of the unique values in the
+    provided collection of values.
+
+    Args:
+        values (np.ndarray): ollection of values for which to compute Gini minimum.
+
+    Returns:
+        np.number: minimum of the values.
+    """
+
     _, values_count = np.unique(values, return_counts=True)
 
     minimum_value = np.min(values_count)
@@ -197,74 +234,107 @@ def minimum(values:np.ndarray) -> np.number:
 
 ## Measures gain
 
-def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    ## initial entropy
-    initial_entropy = entropy(labels)
+def measure_gain(measure:Callable[[np.ndarray], np.number], feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    """Computes the mesurement gain based on the given measure, simulating the
+    split of the provided features values and associated labels according to the
+    decision criterium.
+    The gain is computed as the difference between the initial measurement
+    before the split and the weighted sum of the measurements in each split.
+
+    Args:
+        measure (Callable[[np.ndarray], np.number]): measurement function to use
+        in computation.
+        feature_values (np.ndarray): collection of values to which apply the computation.
+        labels (np.ndarray): labels associated to the feature values.
+        decision (Callable[[Any], int]): decision criterium to apply for
+        splitting the feature values.
+
+    Returns:
+        np.number: measurement gain of the split.
+    """
+
+    ## initial measurement
+    initial_measure = measure(labels)
 
     ## splits
     decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
     decision_unique_values = np.unique(decision_results)
     splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
 
-    ## splits entropy
+    ## splits measure
     feature_size = feature_values.size
     splits_sizes = [split_labels.size for split_labels in splits_labels]
 
-    splits_entropy = 0
+    splits_measure = 0
     for i in range(len(splits_labels)):
         split_weight = splits_sizes[i] / feature_size
-        split_entropy = entropy(splits_labels[i])
-        splits_entropy += split_weight * split_entropy
+        split_measure = measure(splits_labels[i])
+        splits_measure += split_weight * split_measure
 
-    ## information gain
-    final_gain = initial_entropy - splits_entropy
+    ## measurement gain
+    final_gain = initial_measure - splits_measure
 
     return final_gain
 
+def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    """Computes the information gain based on the given measure, simulating the
+    split of the provided features values and associated labels according to the
+    decision criterium.
+    The gain is computed as the difference between the initial entropy before
+    the split and the weighted sum of the entropies in each split.
+
+    Args:
+        feature_values (np.ndarray): collection of values to which apply the computation.
+        labels (np.ndarray): labels associated to the feature values.
+        decision (Callable[[Any], int]): decision criterium to apply for
+        splitting the feature values.
+
+    Returns:
+        np.number: information gain of the split.
+    """
+
+    gain = measure_gain(entropy, feature_values, labels, decision)
+
+    return gain
+
 def gini_impurity_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    ## initial gini
-    initial_gini_impurity = gini_impurity(labels)
+    """Computes the gini impurity gain based on the given measure, simulating
+    the split of the provided features values and associated labels according
+    to the decision criterium.
+    The gain is computed as the difference between the initial gini impurity
+    before the split and the weighted sum of the gini impurities in each split.
 
-    ## splits
-    decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
-    decision_unique_values = np.unique(decision_results)
-    splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
+    Args:
+        feature_values (np.ndarray): collection of values to which apply the computation.
+        labels (np.ndarray): labels associated to the feature values.
+        decision (Callable[[Any], int]): decision criterium to apply for
+        splitting the feature values.
 
-    ## splits gini impurities
-    feature_size = feature_values.size
-    splits_sizes = [split_labels.size for split_labels in splits_labels]
+    Returns:
+        np.number: gini impurity gain of the split.
+    """
 
-    splits_impurity = 0
-    for i in range(len(splits_labels)):
-        split_weight = splits_sizes[i] / feature_size
-        split_gini_impurity = gini_impurity(splits_labels[i])
-        splits_impurity += split_weight * split_gini_impurity
+    gain = measure_gain(gini_impurity, feature_values, labels, decision)
 
-    ## impurity gain
-    final_impurity_gain = initial_gini_impurity - splits_impurity
-
-    return final_impurity_gain
+    return gain
 
 def minimum_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    ## initial minimum
-    initial_minimum = minimum(labels)
+    """Computes the minimum error gain based on the given measure, simulating the
+    split of the provided features values and associated labels according to the
+    decision criterium.
+    The gain is computed as the difference between the initial minimum error
+    before the split and the weighted sum of the minimum errors in each split.
 
-    ## splits
-    decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
-    decision_unique_values = np.unique(decision_results)
-    splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
+    Args:
+        feature_values (np.ndarray): collection of values to which apply the computation.
+        labels (np.ndarray): labels associated to the feature values.
+        decision (Callable[[Any], int]): decision criterium to apply for
+        splitting the feature values.
 
-    ## splits minima
-    feature_size = feature_values.size
-    splits_sizes = [split_labels.size for split_labels in splits_labels]
+    Returns:
+        np.number: minimum gain of the split.
+    """
 
-    splits_minima = 0
-    for i in range(len(splits_labels)):
-        split_weight = splits_sizes[i] / feature_size
-        split_minimum = minimum(splits_labels[i])
-        splits_minima += split_weight * split_minimum
+    gain = measure_gain(minimum, feature_values, labels, decision)
 
-    ## minimum gain
-    final_minimum_gain = initial_minimum - splits_minima
-
-    return final_minimum_gain
+    return gain

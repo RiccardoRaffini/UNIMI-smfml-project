@@ -96,7 +96,7 @@ class TreePredictor:
 
     def __init__(self,
         continuous_condition:Type[Condition], categorical_condition:Type[Condition],
-        decision_metric:Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number] = information_gain,
+        decision_metric:Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number] = None,
         tree_stopping_criteria:list[TreeStopCondition] = None,
         node_stopping_criteria:list[NodeStopCondition] = None
     ) -> None:
@@ -110,8 +110,8 @@ class TreePredictor:
             to use when internal node decision should be based on categorical feature.
             decision_metric (Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number], optional):
             decision metric to use for evaluating possible decision of conditional
-            statements. Defaults to information_gain for using a base implementation
-            of the information gain metric.
+            statements. Defaults to None for using a base implementation of the
+            information gain metric based on the entropy.
             tree_stopping_criteria (list[TreeStopCondition], optional): collection
             of stopping criteria for tree to check during training. Defaults to
             None for using only a default criteria limiting the depth of the
@@ -132,6 +132,8 @@ class TreePredictor:
         self._continuous_condition = continuous_condition
         self._categorical_condition = categorical_condition
         self._decision_metric = decision_metric
+        if self._decision_metric is None:
+            self._decision_metric = information_gain
 
         ## Stopping criteria
         self._tree_stopping_criteria:list[TreeStopCondition] = []
@@ -305,7 +307,9 @@ class TreePredictor:
         the best one and the best paramter (according to the feature type) that
         allow to build the best condition, that is the condition that maximizes
         the decision metric used by this tree.
-        The parameters of this condition and the type of the feature are returned.
+        The parameters of this condition and the type of the feature are
+        returned if a gain condition with respect to the decision metric used
+        in the tree is found.
 
         Args:
             samples (np.ndarray): collection representing the sample to use
@@ -319,7 +323,8 @@ class TreePredictor:
 
         Returns:
             tuple[int, Any, bool]: best feature index, best condition's parameter
-            value and whether or not best feature is continuous.
+            value and whether or not best feature is continuous if there is a
+            gain, (None, None, False) otherwise.
         """
 
         best_condition_score = 0
