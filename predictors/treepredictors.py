@@ -338,6 +338,17 @@ class TreePredictor:
             possible_parameters = np.unique(feature_values)
             is_continuous = np.issubdtype(type(feature_values[0]), np.number)
 
+            if is_continuous:
+                sorted_values = feature_values.copy()
+                sorted_values.sort()
+                possible_parameters = []
+                for i in range(1, len(sorted_values)):
+                    left_value = sorted_values[i-1]
+                    right_value = sorted_values[i]
+                    if left_value != right_value:
+                        mid_point = (left_value + right_value) / 2
+                        possible_parameters.append(mid_point)
+                    
             if verbose: print(f'- checking feature [{feature_index}] > possible parameters: {len(possible_parameters)} continuous: {is_continuous}')
 
             for possible_parameter in possible_parameters:
