@@ -166,6 +166,37 @@ class EqualityCondition(BinaryCondition):
 
 ## Impurity indices
 
+def entropy(values:np.ndarray) -> np.number:
+    _, values_count = np.unique(values, return_counts=True)
+    values_probabilities = values_count / values.size
+
+    entropy_value = - np.sum([probability * np.log2(probability) for probability in values_probabilities if probability > 0])
+
+    return entropy_value
+
+def gini_index(values:np.ndarray) -> np.number:
+    _, values_count = np.unique(values, return_counts=True)
+    values_probabilities = values_count / values.size
+
+    gini_value = np.sum([value_probability ** 2 for value_probability in values_probabilities])
+
+    return gini_value
+
+def gini_impurity(values:np.ndarray) -> np.number:
+    gini_value = gini_index(values)
+    gini_impurity_value = 1 - gini_value
+
+    return gini_impurity_value
+
+def minimum(values:np.ndarray) -> np.number:
+    _, values_count = np.unique(values, return_counts=True)
+
+    minimum_value = np.min(values_count)
+
+    return minimum_value
+
+## Measures gain
+
 def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
     ## initial entropy
     initial_entropy = entropy(labels)
@@ -190,10 +221,50 @@ def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Call
 
     return final_gain
 
-def entropy(values:np.ndarray) -> np.number:
-    _, values_count = np.unique(values, return_counts=True)
-    values_probabilities = values_count / values.size
+def gini_impurity_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    ## initial gini
+    initial_gini_impurity = gini_impurity(labels)
 
-    entropy_value = - np.sum([probability * np.log2(probability) for probability in values_probabilities if probability > 0])
+    ## splits
+    decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
+    decision_unique_values = np.unique(decision_results)
+    splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
 
-    return entropy_value
+    ## splits gini impurities
+    feature_size = feature_values.size
+    splits_sizes = [split_labels.size for split_labels in splits_labels]
+
+    splits_impurity = 0
+    for i in range(len(splits_labels)):
+        split_weight = splits_sizes[i] / feature_size
+        split_gini_impurity = gini_impurity(splits_labels[i])
+        splits_impurity += split_weight * split_gini_impurity
+
+    ## impurity gain
+    final_impurity_gain = initial_gini_impurity - splits_impurity
+
+    return final_impurity_gain
+
+def minimum_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    ## initial minimum
+    initial_minimum = minimum(labels)
+
+    ## splits
+    decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
+    decision_unique_values = np.unique(decision_results)
+    splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
+
+    ## splits minima
+    feature_size = feature_values.size
+    splits_sizes = [split_labels.size for split_labels in splits_labels]
+
+    splits_minima = 0
+    for i in range(len(splits_labels)):
+        split_weight = splits_sizes[i] / feature_size
+        split_minimum = minimum(splits_labels[i])
+        splits_minima += split_weight * split_minimum
+
+    ## minimum gain
+    final_minimum_gain = initial_minimum - splits_minima
+
+    return final_minimum_gain

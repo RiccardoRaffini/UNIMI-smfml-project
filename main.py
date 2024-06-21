@@ -8,7 +8,8 @@ from sklearn.model_selection import train_test_split
 from datasets.methods import dataset_information, delete_dataset_features, fill_dataset_samples, extract_samples_labels
 from predictors.treepredictors import TreePredictor
 from commons.stopping_criteria import NodeImpurityLevel, NodeMinimumSamples
-from commons.splitting_criteria import entropy, ThresholdCondition, MembershipCondition
+from commons.splitting_criteria import ThresholdCondition, MembershipCondition
+from commons.splitting_criteria import entropy, information_gain, gini_impurity_gain, minimum_gain
 from commons.losses import zero_one_loss
 
 def main():
@@ -54,11 +55,13 @@ def main():
     continuous_condition = ThresholdCondition
     categorical_condition = MembershipCondition
     node_stopping_criteria = [NodeMinimumSamples(1)] # [NodeMinimumSamples(15), NodeImpurityLevel(entropy, 0.20)]
+    decision_metric = information_gain # minimum_gain, information_gain, gini_impurity_gain
 
     tree_predictor = TreePredictor(
         continuous_condition=continuous_condition,
         categorical_condition=categorical_condition,
-        node_stopping_criteria=node_stopping_criteria
+        node_stopping_criteria=node_stopping_criteria,
+        decision_metric=decision_metric
     )
 
     print('Initial tree predictor:')

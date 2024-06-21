@@ -255,6 +255,12 @@ class TreePredictor:
             ### Find best split
             features_indices = list(range(self._features_number))
             best_feature_index, best_parameter, is_continuous = self._find_best_condition(current_node_samples, current_node_labels, features_indices, verbose)
+
+            ### Check gain presence
+            if best_feature_index is None:
+                if verbose: print(f'>> stop expansion because no best condition was found')
+
+                continue
             
             if verbose: print(f'>> best feature: {best_feature_index} best parameter: {best_parameter} continuous: {is_continuous}')
 
@@ -278,7 +284,7 @@ class TreePredictor:
             condition_results = np.apply_along_axis(np.vectorize(condition.test), 0, current_node_samples[:, best_feature_index])
             condition_unique_results = np.unique(condition_results)
 
-            if verbose: print(f'parent condition unique results: {condition_results}')
+            if verbose: print(f'parent condition unique results: {condition_unique_results}')
 
             for unique_result in range(np.max(condition_unique_results)+1):
                 partition_indices = current_samples_indices[np.where(condition_results == unique_result)]
@@ -316,7 +322,7 @@ class TreePredictor:
             value and whether or not best feature is continuous.
         """
 
-        best_condition_score = -1
+        best_condition_score = 0
         best_feature_index = best_parameter = None
         is_best_feature_continuous = False
 
