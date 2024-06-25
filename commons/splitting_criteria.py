@@ -318,10 +318,10 @@ def gini_impurity_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Ca
 
     return gain
 
-def minimum_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    """Computes the minimum error gain based on the given measure, simulating the
-    split of the provided features values and associated labels according to the
-    decision criterium.
+def misclassification_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    """Computes the classification error gain based on the given measure, simulating
+    the split of the provided features values and associated labels according
+    to the decision criterium.
     The gain is computed as the difference between the initial minimum error
     before the split and the weighted sum of the minimum errors in each split.
 
@@ -332,7 +332,7 @@ def minimum_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable
         splitting the feature values.
 
     Returns:
-        np.number: minimum gain of the split.
+        np.number: misclassification gain of the split.
     """
 
     gain = measure_gain(minimum, feature_values, labels, decision)

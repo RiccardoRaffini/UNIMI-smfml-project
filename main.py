@@ -9,7 +9,7 @@ from datasets.methods import dataset_information, delete_dataset_features, fill_
 from predictors.treepredictors import TreePredictor
 from commons.stopping_criteria import NodeImpurityLevel, NodeMinimumSamples
 from commons.splitting_criteria import ThresholdCondition, MembershipCondition
-from commons.splitting_criteria import entropy, information_gain, gini_impurity_gain, minimum_gain
+from commons.splitting_criteria import entropy, information_gain, gini_impurity_gain, misclassification_gain
 from commons.losses import zero_one_loss
 
 def main():
@@ -55,7 +55,7 @@ def main():
     continuous_condition = ThresholdCondition
     categorical_condition = MembershipCondition
     node_stopping_criteria = [NodeMinimumSamples(1)] # [NodeMinimumSamples(15), NodeImpurityLevel(entropy, 0.20)]
-    decision_metric = information_gain # minimum_gain, information_gain, gini_impurity_gain
+    decision_metric = information_gain # misclassification_gain, information_gain, gini_impurity_gain
 
     tree_predictor = TreePredictor(
         continuous_condition=continuous_condition,
