@@ -274,4 +274,4 @@ class NodeImpurityLevel(NodeStopCondition):
         return self._measurement(labels) <= self._threshold
 
     def __str__(self) -> str:
-        return f'{self._measurement} impurity <= {self._threshold}'
+        return f'{self._measurement.__name__} impurity <= {self._threshold}'
