@@ -273,8 +273,8 @@ def flat_cross_validation(model:Type[TreePredictor], loss:Callable[[np.ndarray, 
 
     ## Iterating on hyperparameters
     hyperparameters_losses = []
-    for hyperparameter in hyperparameters:
-        if verbose: print(f'- cross validation using parameters {hyperparameter}')
+    for i, hyperparameter in enumerate(hyperparameters):
+        if verbose: print(f'- cross validation using parameters [{i}] {hyperparameter}')
 
         ## Iterating on folds
         folds_losses = []
