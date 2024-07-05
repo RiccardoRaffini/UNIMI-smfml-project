@@ -1,3 +1,4 @@
+import math
 import numpy as np
 from typing import Callable, Any
 from abc import ABC, abstractmethod
@@ -277,9 +278,8 @@ def measure_gain(measure:Callable[[np.ndarray], np.number], feature_values:np.nd
     return final_gain
 
 def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    """Computes the information gain based on the given measure, simulating the
-    split of the provided features values and associated labels according to the
-    decision criterium.
+    """Computes the information gain, simulating the split of the provided
+    features values and associated labels according to the decision criterium.
     The gain is computed as the difference between the initial entropy before
     the split and the weighted sum of the entropies in each split.
 
@@ -298,9 +298,8 @@ def information_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Call
     return gain
 
 def gini_impurity_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    """Computes the gini impurity gain based on the given measure, simulating
-    the split of the provided features values and associated labels according
-    to the decision criterium.
+    """Computes the gini impurity gain, simulating the split of the provided
+    features values and associated labels according to the decision criterium.
     The gain is computed as the difference between the initial gini impurity
     before the split and the weighted sum of the gini impurities in each split.
 
@@ -319,9 +318,8 @@ def gini_impurity_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Ca
     return gain
 
 def misclassification_gain(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
-    """Computes the classification error gain based on the given measure, simulating
-    the split of the provided features values and associated labels according
-    to the decision criterium.
+    """Computes the classification error gain, simulating the split of the
+    provided features values and associated labels according to the decision criterium.
     The gain is computed as the difference between the initial minimum error
     before the split and the weighted sum of the minimum errors in each split.
 
@@ -338,3 +336,56 @@ def misclassification_gain(feature_values:np.ndarray, labels:np.ndarray, decisio
     gain = measure_gain(minimum, feature_values, labels, decision)
 
     return gain
+
+## Other measures
+
+def chi_square(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[Any], int]) -> np.number:
+    """Computes the Chi-squared metric, simulating the split of the provided
+    features values and associated labels according to the decision criterium.
+    The Chi-square of the decision is computed as the sum of the Chi-squares of
+    each split, in turn computed as the sum of Chi-squares of each unique label.
+
+    Args:
+        feature_values (np.ndarray): collection of values to which apply the computation.
+        labels (np.ndarray): labels associated to the feature values.
+        decision (Callable[[Any], int]): decision criterium to apply for
+        splitting the feature values.
+
+    Returns:
+        np.number: Chi-square value of the split.
+    """
+
+    ## splits
+    decision_results = np.apply_along_axis(np.vectorize(decision), 0, feature_values)
+    decision_unique_values = np.unique(decision_results)
+    splits_labels = [labels[np.where(decision_results == unique_value)] for unique_value in decision_unique_values]
+
+    ## Expected values distribution (parent)
+    total_labels = len(labels)
+    unique_labels, labels_counts = np.unique(labels, return_counts=True)
+    expected_frequency = {unique_label: label_count/total_labels for unique_label, label_count in zip(unique_labels, labels_counts)}
+
+    ## Splits Chi-square
+    splits_chi_squares = []
+    for i in range(len(splits_labels)):
+        split_labels = splits_labels[i]
+        unique_labels, labels_counts = np.unique(split_labels, return_counts=True)
+
+        ## Expected values and actual values (child)
+        expected_values = dict()
+        actual_values = dict()
+        for unique_label, label_count in zip(unique_labels, labels_counts):
+            expected_values[unique_label] = label_count * expected_frequency[unique_label]
+            actual_values [unique_label] =  label_count
+
+        ## Labels Chi-squares
+        labels_chi_squares = [math.sqrt((actual_values[label] - expected_values[label])**2 / expected_values[label]) for label in actual_values.keys()]
+
+        ## Split Chi-square
+        split_chi_square = np.sum(labels_chi_squares)
+        splits_chi_squares.append(split_chi_square)
+
+    ## Decision Chi-square
+    decision_chi_square = np.sum(splits_chi_squares)
+
+    return decision_chi_square

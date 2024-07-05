@@ -288,6 +288,16 @@ class TreePredictor:
 
             if verbose: print(f'parent condition unique results: {condition_unique_results}')
 
+            if len(condition_unique_results) == 1:
+                if verbose: print(f'>> stop expansion because it invalidates tree structure')
+
+                current_node.label = self._common_label(current_node_labels)
+                current_node.feature_index = None
+                current_node.condition = None
+                self._leaves_count += 1
+
+                continue
+
             for unique_result in range(np.max(condition_unique_results)+1):
                 partition_indices = current_samples_indices[np.where(condition_results == unique_result)]
                 partition_labels = labels[partition_indices]
