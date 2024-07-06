@@ -42,3 +42,12 @@ def plot_confusion_matrices(model_names:list[str], labels:list[str], true_train_
         #matrix_display.im_.colorbar.remove()
 
     plt.show()
+
+def format_hyperparameters(hyperparameters_configuration:np.ndarray) -> list[Any]:
+    return [
+        hyperparameters_configuration[0].__name__,
+        hyperparameters_configuration[1].__name__,
+        hyperparameters_configuration[2].__name__,
+        [str(condition) for condition in hyperparameters_configuration[3]],
+        [str(condition) for condition in hyperparameters_configuration[4]]
+    ]

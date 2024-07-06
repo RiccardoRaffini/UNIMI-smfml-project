@@ -2,8 +2,10 @@ import numpy as np
 import math
 from typing import Callable
 from typing import Any, Type, Tuple, Dict
+from sklearn.model_selection import train_test_split
 
 from predictors.treepredictors import TreePredictor
+from commons.plotting import format_hyperparameters
 
 def zero_one_loss(y_truth:np.ndarray, y_pred:np.ndarray) -> np.ndarray:
     """Computes zero-one loss of the provided predicted labels with respect to
@@ -122,6 +124,87 @@ def cross_validation(model:Type, loss:Callable[[np.ndarray, np.ndarray], np.ndar
     if verbose: print(f'>> final cross validation value: {cross_validation_value}')
 
     return cross_validation_value
+
+def holdout_cross_validation(model:Type[TreePredictor], loss:Callable[[np.ndarray, np.ndarray], np.ndarray],
+                             data:np.ndarray, labels:np.ndarray, splits_ratios:Tuple[int, int, int],
+                             hyperparameters:np.ndarray[np.ndarray], shuffle:bool = True,
+                             random_seed:int = None, verbose:bool = False) -> Tuple[np.number, Tuple]:
+    """Executes the holdout cross validation on the provided collection of data
+    and labels, splitting them in train/validation/test sets and specifically
+    evaluating a TreePredictor predictor trained on all the hyperparameters in
+    the given grid.
+    This function only works on TreePredictor models, so also hyperparameter
+    must be compatible.
+
+    Args:
+        model (Type[TreePredictor]): type of predictive model to train on the dataset.
+        loss (Callable[[np.ndarray, np.ndarray], np.ndarray]): loss function
+        to use for evaluating the model on folds data.
+        data (np.ndarray): collection of samples.
+        labels (np.ndarray): collection of labels associated to samples.
+        splits_ratios (Tuple[int, int, int]): ratios for splitting train, validation
+        and test sets.
+        hyperparameters (np.ndarray[np.ndarray]): linearized grid of possible
+        hyperparameters to use in the inner cross validation procedure.
+        shuffle (bool, optional): determines whether or not to shuffle data in
+        the given set. Defaults to True for shuffling them.
+        random_seed (int, optional): random seed to use for shuffling data.
+        Defaults to None for not using a seed.
+        verbose (bool, optional): determines wheter or not to print information
+        during the process. Defaults to False for no prints.
+
+    Returns:
+        Tuple[np.number, Tuple]: holdout validation value and the hyperparameters
+        providing the best result.
+    """
+    
+    ## Create splits
+    train_ratio, validation_ratio, test_ratio = splits_ratios
+    train_data, test_data, train_labels, test_labels = train_test_split(data, labels, test_size=1-train_ratio, shuffle=shuffle, random_state=random_seed)
+    validation_data, test_data, validation_labels, test_labels = train_test_split(test_data, test_labels, test_size=test_ratio/(validation_ratio+test_ratio))
+
+    if verbose: print(f'split {len(data)} data into train [{len(train_data)}], validation [{len(validation_data)}] and test [{len(test_data)}]')
+
+    ## Iterating on hyperparameters
+    hyperparameters_losses = []
+    for i, hyperparameter in enumerate(hyperparameters):
+        if verbose: print(f'- cross validation using parameters [{i}] {format_hyperparameters(hyperparameter)}')
+
+        ## Define parameters
+        continuous_condition = hyperparameter[0]
+        categorical_condition = hyperparameter[1]
+        decision_metric = hyperparameter[2]
+        tree_stopping_criteria = hyperparameter[3]
+        node_stopping_criteria = hyperparameter[4]
+
+        ## Define model
+        current_model = model(continuous_condition, categorical_condition, decision_metric, tree_stopping_criteria, node_stopping_criteria)
+
+        ## Train model on train set
+        if verbose: print(f'Training model...')
+
+        current_model.fit(train_data, train_labels)
+
+        ## Evaluate model on validation set
+        if verbose: print(f'Validating model...')
+
+        hyperparameter_loss = samples_error(current_model.predict, loss, validation_labels, validation_data)
+        hyperparameters_losses.append(hyperparameter_loss)
+
+        if verbose: print(f'Validation loss: {hyperparameter_loss}')
+
+    ## cross validation value
+    holdout_cross_validation_value = np.mean(hyperparameters_losses)
+
+    if verbose: print(f'>> Final holdout cross validation error: {holdout_cross_validation_value}')
+
+    ## Find best hyperparameters
+    best_index = np.argmin(hyperparameters_losses)
+    best_hyperparameters = hyperparameters[best_index]
+
+    if verbose: print(f'>> Final best hyperparameters: {format_hyperparameters(best_hyperparameters)}')
+
+    return holdout_cross_validation_value, best_hyperparameters
 
 def nested_cross_validation(model:Type[TreePredictor], loss:Callable[[np.ndarray, np.ndarray], np.ndarray],
                               data:np.ndarray, labels:np.ndarray,
