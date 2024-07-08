@@ -194,7 +194,7 @@ def holdout_cross_validation(model:Type[TreePredictor], loss:Callable[[np.ndarra
         if verbose: print(f'Validation loss: {hyperparameter_loss}')
 
     ## cross validation value
-    holdout_cross_validation_value = np.mean(hyperparameters_losses)
+    holdout_cross_validation_value = np.min(hyperparameters_losses)
 
     if verbose: print(f'>> Final holdout cross validation error: {holdout_cross_validation_value}')
 
