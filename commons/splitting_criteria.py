@@ -375,7 +375,7 @@ def chi_square(feature_values:np.ndarray, labels:np.ndarray, decision:Callable[[
         expected_values = dict()
         actual_values = dict()
         for unique_label, label_count in zip(unique_labels, labels_counts):
-            expected_values[unique_label] = label_count * expected_frequency[unique_label]
+            expected_values[unique_label] = len(split_labels) * expected_frequency[unique_label]
             actual_values [unique_label] =  label_count
 
         ## Labels Chi-squares
