@@ -2,7 +2,7 @@ import numpy as np
 from typing import Any, Callable, Type
 from collections import Counter
 
-from commons.splitting_criteria import Condition
+from commons.splitting_criteria import Condition, FeaturesSelector, AllFeaturesSelector
 from commons.splitting_criteria import information_gain, entropy
 from commons.stopping_criteria import TreeStopCondition, TreeMaximumDepth, NodeStopCondition, NodeImpurityLevel
 
@@ -98,7 +98,8 @@ class TreePredictor:
         continuous_condition:Type[Condition], categorical_condition:Type[Condition],
         decision_metric:Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number] = None,
         tree_stopping_criteria:list[TreeStopCondition] = None,
-        node_stopping_criteria:list[NodeStopCondition] = None
+        node_stopping_criteria:list[NodeStopCondition] = None,
+        features_selector:FeaturesSelector = None
     ) -> None:
         """Initializes a new TreePredictor instance by specifying criteria
         required for its training and computation behavior.
@@ -119,6 +120,9 @@ class TreePredictor:
             node_stopping_criteria (list[NodeStopCondition], optional): collection
             of stopping criteria for nodes to check during training. Defaults to
             None for not using any criteria.
+            features_selector (FeaturesSelector, optional): feature selector
+            instance to use for finding of best feature during training. Defaults
+            to None for using a simple selector that choose all features.
         """
 
         ## Tree structure
@@ -145,6 +149,11 @@ class TreePredictor:
         self._node_stopping_criteria = [NodeImpurityLevel(entropy, 0)]
         if not node_stopping_criteria is None:
             self._node_stopping_criteria.extend(node_stopping_criteria)
+
+        ## Features selector
+        self._features_selector = features_selector
+        if features_selector is None:
+            self._features_selector = AllFeaturesSelector()
 
     def fit(self, samples:np.ndarray, labels:np.ndarray, verbose:bool = False) -> None:
         """Trains the underlying model of this tree predictor using the given
@@ -255,7 +264,7 @@ class TreePredictor:
             if verbose: print(f'Expanding node...')
 
             ### Find best split
-            features_indices = list(range(self._features_number))
+            features_indices = self._features_selector.select(self._features_number)
             best_feature_index, best_parameter, is_continuous = self._find_best_condition(current_node_samples, current_node_labels, features_indices, verbose)
 
             ### Check gain presence

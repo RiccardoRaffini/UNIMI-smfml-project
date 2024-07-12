@@ -164,6 +164,108 @@ class EqualityCondition(BinaryCondition):
     
     def __str__(self) -> str:
         return f'x == {self._reference_value}'
+    
+## Features Selectors
+
+class FeaturesSelector(ABC):
+    """Abstract base class representing a selection criterion for selecting a
+    subset of features of specified size from a collection of available ones.
+    Features selectors can be implemented in many different ways according to
+    the selection criterion they express, but they must provide a select method
+    returning a collection of selected indices.
+    """
+
+    @abstractmethod
+    def select(self, features:int) -> np.ndarray:
+        """Selects and returns a subset of features indices from a the range
+        of values [0, features) following the criterion represented by this
+        class and its parameters.
+
+        Args:
+            features (int): total number of features.
+
+        Returns:
+            np.ndarray: collection of selected indices.
+        """
+        
+        raise NotImplementedError
+
+    def __str__(self) -> str:
+        return '<generic feature selector>'
+    
+class AllFeaturesSelector(FeaturesSelector):
+    """Instances of this class represent features selector producing a complete
+    collection of feature indices.
+    No parameter is required for this kind of selector.
+    """
+
+    def __init__(self) -> None:
+        """Initializes a new AllFeaturesSelector instance.
+        """
+
+        super().__init__()
+
+    def select(self, features:int) -> np.ndarray:
+        """Select and returns all the feature indices in the range (0, features].
+
+        Args:
+            features (int): total number of features
+
+        Returns:
+            np.ndarray: collection of all indices.
+        """
+
+        all_features =  np.arange(features)
+
+        return all_features
+    
+    def __str__(self) -> str:
+        return '<all features selector>'
+    
+class RandomFeaturesSelector(FeaturesSelector):
+    """Instances of this class represent features selector producing a random
+    subset of randomly selected indices, but with fixed size.
+    Selector of this kind characterized by the number of selected features and
+    eventually a random seed.
+    """
+
+    def __init__(self, features_number:int, random_seed:int = None) -> None:
+        """Initializes a new RandomFeaturesSelector instance by specifying the
+        number of feature to extract in each selection and eventually a seed
+        for the underlying random generator.
+
+        Args:
+            features_number (int): number of feature to extract in each selection.
+            random_seed (int, optional): number used for initializing the rnadom
+            generator. Defaults to None for no initialization.
+        """
+
+        super().__init__()
+
+        self._features_number = features_number
+        self._seed = random_seed
+
+    def select(self, features:int) -> np.ndarray:
+        """Selects and returns a fixed-sized subset of feature indices
+        by randomly choosing indices from the range [0, features).
+
+        Args:
+            features (int): total number of features.
+
+        Returns:
+            np.ndarray: collection of randomly selected indices.
+        """
+
+        if not self._seed is None:
+            np.random.seed(self._seed)
+            self._seed += 1
+
+        selected_features = np.random.choice(features, self._features_number, replace=False)
+
+        return selected_features
+    
+    def __str__(self) -> str:
+        return '<random features selector>'
 
 ## Impurity indices
 
