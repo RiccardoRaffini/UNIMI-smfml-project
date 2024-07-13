@@ -8,6 +8,13 @@ from commons.stopping_criteria import TreeStopCondition, NodeStopCondition
 from predictors.treepredictors import TreePredictor
 
 class TreePredictorRandomForest:
+    """Instances of this class represent a collection of generic tree predictors,
+    trainable to learn an ensemble of decision trees based on decision with a
+    generic number of outcomes and appliable to any kind of features.
+    Different aspects of the trees computation and training behavior can be
+    customized to determine the kind of the obtained trees, their charcteristics
+    and their number.
+    """
 
     def __init__(self,
         tree_predictors_number:int,
@@ -17,6 +24,29 @@ class TreePredictorRandomForest:
         node_stopping_criteria:list[NodeStopCondition] = None,
         random_seed:int = None
         ) -> None:
+        """Initialize a new TreePredictorRandomForest instance by specifying the
+        number of tree predictor to use and the criteria required for their
+        training and computational behavior.
+
+        Args:
+            tree_predictors_number (int): number of tree predictors that should
+            compose the random forest.
+            continuous_condition (Type[Condition]): continuous condition used
+            by contained trees to handle continuous features.
+            categorical_condition (Type[Condition]): categorical condition used
+            by contained trees to handle catehorical features.
+            decision_metric (Callable[[np.ndarray, np.ndarray, Callable[[Any], int]], np.number], optional):
+            decision metric usaed by contained trees for evaluating possible
+            decision of conditional statements. Defaults to None for using a
+            base implementation of the information gain metric based on the entropy.
+            tree_stopping_criteria (list[TreeStopCondition], optional): collection
+            of stopping criteria used by contained trees to check during training.
+            Defaults to None for using only a default criteria limiting the 
+            epth of the tree to 100.
+            node_stopping_criteria (list[NodeStopCondition], optional): collection
+            of stopping criteria for nodes to check during training used by
+            contained trees. Defaults to None for not using any criteria.
+        """
         
         ## Forest structure
         self._tree_predictors_number = tree_predictors_number
